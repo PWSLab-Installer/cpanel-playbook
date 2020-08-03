@@ -1,0 +1,52 @@
+- hosts: localhost
+  connection: local
+
+  vars:
+    
+
+  tasks:
+      
+    - name: Check the version of CentOS
+      command: hostnamectl
+      register: os_check
+      ignore_errors: yes
+
+    - name: Set FQDN
+      command: hostname pwslab.example.com
+      when:
+        - os_check.stdout | regex_search("CentOS Linux 7")
+
+    - name: Disable SELinux
+      selinux:
+        state: disabled
+      when:
+        - os_check.stdout | regex_search("CentOS Linux 7")
+
+    - name: Get the latest Cpanel package
+      get_url:
+        url: https://securedownloads.cpanel.net/latest
+        dest: /tmp/latest
+        # mode: '0755'
+      when:
+        - os_check.stdout | regex_search("CentOS Linux 7")
+
+    - name: Change the working directory to somedir/ before executing the command.
+      shell: bash /tmp/latest >> /var/log/cpanel_install.log
+      args:
+        chdir: /home/
+      when:
+        - os_check.stdout | regex_search("CentOS Linux 7")
+        
+    - name: Saving the CPanel entry
+      shell: tail -n 23 /var/log/cpanel_install.log |  awk '{print substr($0,index($0," INFO){{ ":" }} ")+3)}'
+      register: cpanel_script
+      when:
+        - os_check.stdout | regex_search("CentOS Linux 7")
+    
+    - name: stdout of cpanel_script
+      debug: msg={{ cpanel_script.stdout }}
+      when: 
+        - cpanel_script is defined 
+        - os_check.stdout | regex_search("CentOS Linux 7")
+
+      
